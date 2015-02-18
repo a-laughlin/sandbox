@@ -51,6 +51,40 @@ sandbox(function(s){
     throw new Error('no module exists with key,path,url,or state.name: '+input);
   }
 
+  // utility function to lazy load states
+  var loadedSections = {};
+  function lazyLoadState($injector,$location, normedModule) {
+    stateCreatedInTime = false;
+    // ensure we load all parent states before trying to load a child
+    var statesToLoad = [];
+    if(loadedSections[normedModule.stateName]){
+      statesToLoad.push(s.msg('request '+key,{},{internal:true}));
+    } else {
+      normedModule.stateName.split('.').slice(1).reduce(function (result,next) {
+        var res = result + '.' + next;
+        loadedSections[res]=true;
+        statesToLoad.push(s.loadSandbox(res));
+        return res;
+      },'sections');
+    }
+    s.p.all(statesToLoad)
+    .then(function () {
+      if($location.path() === normedModule.url){
+        $injector.get("$state").go(normedModule.stateName,$location.search());
+      } else {
+        $location.path(normedModule.url);
+      }
+      s._.delay(function () {
+        if(stateCreatedInTime === false){
+          throw new Error('State transition failed. Did you create a componentDirective in '+normedModule.modulePath+'.js?');
+        }
+      },1000);
+    })
+    .catch(function (err) {
+      console.error('module not loaded - need to redirect',err);
+    });
+  }
+
   /**
    * angular module config() phase
    * All it does is handle route and state creation.
@@ -79,33 +113,8 @@ sandbox(function(s){
     });
 
     // when route isn't found,
-    var loadedSections = {};
-    $urlRouterProvider.otherwise(function lazyLoadState($injector, $location) {
-      var norm = normalizedModule($location.path());
-      stateCreatedInTime = false;
-      setTimeout(function () {
-        if(stateCreatedInTime !== false){ return;}
-        throw new Error('must create a componentDirective in module: ' + norm.moduleKey);
-      },1000);
-      // ensure we load all parent states before trying to load a child
-      var statesToLoad = [];
-      if(loadedSections[norm.stateName]){
-        statesToLoad.push(s.msg('request '+key,{},{internal:true}));
-      } else {
-        norm.stateName.split('.').slice(1).reduce(function (result,next) {
-          var res = result + '.' + next;
-          loadedSections[res]=true;
-          statesToLoad.push(s.loadSandbox(res));
-          return res;
-        },'sections');
-      }
-      s.p.all(statesToLoad)
-      .then(function () {
-        $injector.get("$state").go(norm.stateName,$location.search());
-      })
-      .catch(function (err) {
-        console.error('module not loaded - need to redirect',err);
-      });
+    $urlRouterProvider.otherwise(function ($injector,$location) {
+      lazyLoadState($injector,$location,normalizedModule($location.path()))
     });
   }]);
 
@@ -125,6 +134,9 @@ sandbox(function(s){
     $rootScope.$on('$stateChangeStart', function(event, toState, toParams, fromState, fromParams){
       TOSTATE = toState;
       TOPARAMS = toParams;
+      if(toState.name!== 'app'){
+        normedModules.byStateName[toState.name].params = toParams;
+      }
       console.log('$stateChangeStart to '+toState.name+' from '+fromState.name+' - fired when the transition begins.');
     });
 
@@ -136,15 +148,11 @@ sandbox(function(s){
     $rootScope.$on('$stateChangeSuccess', function(event, toState, toParams, fromState, fromParams){
       console.log('$stateChangeSuccess to '+toState.name+' from '+fromState.name+' - fired once the state transition is complete.');
     });
-    var loadedSections = {};
     $rootScope.$on('$stateNotFound', function(event, unfoundState, fromState, fromParams){
       console.log('$stateNotFound '+unfoundState.to+'  - fired when a state cannot be found by its name.');
       event.preventDefault();
-      debugger;
 
-      var nextPathObj = normalizedModule(unfoundState.to);
-      $location.path(nextPathObj.url);
-      $rootScope.$digest();
+      lazyLoadState($injector,$location,normalizedModule(unfoundState.to));
     });
   }]);
 

@@ -67,7 +67,7 @@
 
     modules.app.sandbox.loadSandbox = function(name,params){
       if(!modules[name]){
-        debugger;
+        throw new Error('no sandbox named'+name+'. Did you create one?');
       }
       if(modules[name].state === 'defined'){
         modules[name].state = 'requested';
