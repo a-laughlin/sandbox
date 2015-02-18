@@ -85,6 +85,7 @@ Architecture, Angular 2.0, and AngularAMD.
 
 # Context
 ### Directory Structure
+```
 app
   |- sandbox.js         provides messaging to all sandboxes, and provides app.js with
                         the ability to supervise sandboxes' interaction.
@@ -116,7 +117,7 @@ app
     |- cats.spec.js     unit tests for the cats state code
     |- cats.less        cats state styling
   |-/vendor             other 3rd party code not in bower components
-
+```
 
 Note that all components are swappable for other code.
 An example of why this is important: We can use $http, $resource, restangular,
