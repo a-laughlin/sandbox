@@ -16,6 +16,7 @@
   - [Additional Scenarios with the at_collection Component](#additional-scenarios-with-the-at_collection-component)
     - [Create a collection](#create-a-collection)
     - [Include the Collection in a Section, then Add a Model](#include-the-collection-in-a-section-then-add-a-model)
+    - [Include the Collection in a Nested Section](#include-the-collection-in-a-nested-section)
 
 <!-- /MarkdownTOC -->
 
@@ -269,6 +270,7 @@ sandbox(function (s) {
 </ul>
 ```
 
-I'd like to redo the message parsing so we can just request cat_collection and let the mediator take care of knowing where it's coming from. Though the mediator can technically intercept all communications now, requesting only the resource name fits the pattern better and requires less typing. The challenge is that we don't know what responses the module offers until we request it. No way around that.  We have to request some aspect of the module.  We can for sure get rid of the "components." prefix though.
+#### [Include the Collection in a Nested Section](#include-at-collection-in-section)
 
+Haven't written this yet.  Check the demo to see it working.  Use a ui-view directive from UI router to specify where the nested template should go.
 
