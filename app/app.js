@@ -18,6 +18,8 @@ sandbox(function(s){
     byModulePathKey:{},
     byStateName:{},
     byModulePath:{},
+    components:{},
+    sections:{},
     byUrl:{}
   };
 
@@ -31,8 +33,10 @@ sandbox(function(s){
       normalized.directiveName = s._.camelCase(key.replace(/^sections/,'app')); // sections/plans/manage/manage_module
       normedModules.byStateName[normalized.stateName] = normalized;
       normedModules.byUrl[normalized.url] = normalized;
+      normedModules.sections[key] = normalized;
     } else {
       normalized.directiveName = s._.camelCase(key.replace(/^components\./,'')); // sections/plans/manage/manage_module
+      normedModules.components[key] = normalized;
     }
     normalized.moduleKey = key; // plans.manage
     normalized.modulePath = path; // sections/plans/manage/manage_module
@@ -158,11 +162,11 @@ sandbox(function(s){
 
 
   // simple debug logger
-  function logMsg(){
+  function logMsg(envelope){
     var start = window.indexLoadTime;
-    var end = (new Date(envelope.timeStamp)).getTime();
+    var end = (new Date()).getTime();
     var time = end - start;
-    var e = s._.omit(envelope,timeStamp);
+    var e = s._.merge({},envelope);
 
     var dataMsg = typeof e.data === 'function' ? 'function' : e.data;
     if(dataMsg && dataMsg.channel){
@@ -183,10 +187,30 @@ sandbox(function(s){
       }
     }
   }
+
+  // enable different publish targets
+  var publishTo = {
+    all:function(envelope){
+      s._.forIn(normedModules.byModulePathKey,function (module,key) {
+        s.msg(envelope.topic,envelope.data,{channel:key});
+      });
+    },
+    ancestors:function(){},
+    descendents:function(){}
+  }
+
   // setMsgInterceptor defines a function to intercept all s.msg() calls
   // It works for now. Long term, it needs a more robust implementation.
   s.setMsgInterceptor(function(envelope){
-    if(DEBUG){logMsg(envelope)};
+    // app should be able to publish across all directories
+    // app should be able to publish a message a specific directory
+    // app should be able to receive a request and redirect it to the appropriate channel
+    // sandbox should be able to publish up through parent directories
+    // sandbox should be able to publish directly to app
+    // sandbox should be able to publish internally, bypassing app
+    // app should be able to publish internally
+    //
+    if(DEBUG && DEBUG.test(envelope.topic)){logMsg(envelope)};
     envelope.channel = 'app';
     if(envelope.source === 'app'){
       if(!envelope.options.channel){
@@ -206,6 +230,11 @@ sandbox(function(s){
     }
 
     if(envelope.topic.indexOf('request ') !== 0){
+      // handle redirecting to the appropriate channel
+      if (publishTo[envelope.options.to]){
+        envelope.options.cancel=true;
+        publishTo[envelope.options.to](envelope);
+      }
       return true;
     }
 
@@ -239,7 +268,7 @@ sandbox(function(s){
 
   // intercept all calls to s.on
   s.setOnInterceptor(function (envelope,fn) {
-    if(DEBUG){logMsg(envelope)};
+    if(DEBUG && DEBUG.test(envelope.topic)){logMsg(envelope)};
     envelope.callback = function(data,env){
       if(!env){
         throw data;// "data" is actually error here in postal.js speak
@@ -250,42 +279,6 @@ sandbox(function(s){
       return fn(data);
     }
   });
-
-  // adds a new state.
-  function addState (envelope,normedModule) {
-    stateCreatedInTime = true;
-    envelope.data.state = envelope.data.state || {};
-
-    var stateObj = {};
-    if(envelope.data.state.overwrite){
-      stateObj = envelope.data.state;
-    } else {
-      stateObj.name = normedModule.stateName;
-      stateObj.templateUrl = normedModule.templateUrl;
-      stateObj.url = normedModule.stateUrl + (envelope.data.stateParams || '');
-      stateObj.abstract = envelope.data.state.abstract;
-      stateObj.controllerAs = normedModule.directiveName;
-
-      if(envelope.data.controller){
-        stateObj.controller = function(resolutions){
-          envelope.data.controller.call(this,resolutions);
-        };
-      }
-      stateObj.resolve = {
-        resolutions:function ($state,$stateParams) {
-          var stateObj = {
-            'toStateName':TOSTATE.name,
-            'params': s._.transform(TOPARAMS,function(result,val,key){
-              result[key] = val <= Infinity ? val/1 : val;
-            })
-          };
-
-          return envelope.data.resolve ? envelope.data.resolve(stateObj): stateObj;
-        }
-      };
-    }
-    STATEPROVIDER.state(stateObj);
-  }
 
   // simple whitelisting for who can make requests
   function whiteList(envelope,moduleName){
@@ -328,16 +321,53 @@ sandbox(function(s){
       });
       HTTPPROVIDER.interceptors.push(envelope.data.name);
     },
+    addState:function (envelope) {
+      var norm = normalizedModule(envelope.source);
+      if(norm.moduleKey.indexOf('section') !== 0){
+        throw new Error('addState only works in sections');
+      }
+      stateCreatedInTime = true;
+      envelope.data.state = envelope.data.state || {};
+
+      var stateObj = {};
+      if(envelope.data.state.overwrite){
+        stateObj = envelope.data.state;
+      } else {
+        stateObj.name = norm.stateName;
+        stateObj.templateUrl = norm.templateUrl;
+        stateObj.url = norm.stateUrl + (envelope.data.stateParams || '');
+        stateObj.abstract = envelope.data.state.abstract;
+        stateObj.controllerAs = norm.directiveName;
+
+        if(envelope.data.controller){
+          stateObj.controller = function(resolutions,$scope){
+            envelope.data.controller.apply(this,arguments);
+          };
+        }
+        stateObj.resolve = {
+          resolutions:function ($state,$stateParams) {
+            var obj = {
+              'toStateName':TOSTATE.name,
+              'params': s._.transform(TOPARAMS,function(result,val,key){
+                result[key] = +val <= Infinity ? +val : val;
+              })
+            };
+            return envelope.data.resolve ? envelope.data.resolve(obj): obj;
+          }
+        };
+      }
+      STATEPROVIDER.state(stateObj);
+    },
     componentDirective:function (envelope) {
       var norm = normalizedModule(envelope.source);
       if(norm.moduleKey.indexOf('section')=== 0){
         // create a state that acts like a directive
-        return addState(envelope,norm);
+        throw new Error('use addState instead');
       }
       COMPILEPROVIDER.directive(norm.directiveName,function(){
         var directiveDefinitionObj = {
           require:envelope.data.require,
-          replace:true,
+          replace:false,
           transclude:false,
           restrict:'E',
           scope:true,
@@ -368,7 +398,7 @@ sandbox(function(s){
         return directiveDefinitionObj;
       });
     },
-    generatorDirective:function (envelope) {
+    templateDirective:function (envelope) {
       var norm = normalizedModule(envelope.source);
 
       console.log('generatorDirective',arguments);
