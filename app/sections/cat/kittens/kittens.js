@@ -1,5 +1,5 @@
 sandbox(function (s) {
-  s.msg('componentDirective',{
+  s.msg('addState',{
     resolve:function ($stateData) {
       return s.msg('request components.at_kitten_model.kitten_collection',{id:$stateData.params.kittenId})
     },

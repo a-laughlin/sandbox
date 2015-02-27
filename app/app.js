@@ -152,10 +152,13 @@ sandbox(function(s){
     $rootScope.$on('$stateChangeSuccess', function(event, toState, toParams, fromState, fromParams){
       console.log('$stateChangeSuccess to '+toState.name+' from '+fromState.name+' - fired once the state transition is complete.');
     });
+    var notFoundCount = 0;
     $rootScope.$on('$stateNotFound', function(event, unfoundState, fromState, fromParams){
       console.log('$stateNotFound '+unfoundState.to+'  - fired when a state cannot be found by its name.');
       event.preventDefault();
-
+      if(++notFoundCount > 100){
+        throw new Error('State not found limit 100.');
+      }
       lazyLoadState($injector,$location,normalizedModule(unfoundState.to));
     });
   }]);

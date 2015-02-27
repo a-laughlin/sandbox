@@ -1,5 +1,5 @@
 sandbox(function (s) {
-  s.msg('componentDirective',{
+  s.msg('addState',{
     stateParams:'?catId',
     resolve:function ($stateData) {
       return s.msg('request components.at_cat_model.cat_collection')
