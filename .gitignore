@@ -1,5 +1,4 @@
 node_modules
 sftp-config*
 *.log
-app/bower
 coverage
