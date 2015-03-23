@@ -1,8 +1,7 @@
 module.exports = function (grunt) {
   require('load-grunt-tasks')(grunt);
-
-// different config files
-// single loader file template that gets compiled into dist folders
+  // different config files
+  // single loader file template that gets compiled into dist folders
 
   var configObj = {
     pkg: grunt.file.readJSON('package.json'),
@@ -12,35 +11,20 @@ module.exports = function (grunt) {
       app:'<%= dirs.root %>app/',
       bower:'<%= dirs.app %>bower/',
       vendor:'<%= dirs.app %>vendor/',
-      sections:'<%= dirs.app %>sections/',
+      states:'<%= dirs.app %>states/',
       components:'<%= dirs.app %>components/',
       vendor_bower:'<%= dirs.app %>{bower,vendor}/',
-      app_sections_components:'<%= dirs.app %>{,sections/**/,components/**/}',
-      // app_sections_components:'<%= dirs.app %>{app_module}.js',
-      sections:{
-        events:'<%= dirs.sections %>events/',
-        contacts:'<%= dirs.sections %>contacts/',
-        reports:'<%= dirs.sections %>reports/',
-        analyses:'<%= dirs.sections %>analyses/',
-        registration:'<%= dirs.sections %>registration/',
-        payments:'<%= dirs.sections %>payments/',
-      },
+      app_states_components:'<%= dirs.app %>{,states/**/,components/**/}',
+      // app_states_components:'<%= dirs.app %>{app_module}.js',
       dist:{
-        root:'dist',
-        app:'dist/app/',
-        dashboard:'dist/dashboard/',
-        plans:'dist/plans/',
-        contacts:'dist/contacts/',
-        reports:'dist/reports/',
-        analyses:'dist/analyses/',
-        registration:'dist/registration/',
-        payments:'dist/payments/',
+        root:'<%= dirs.root %>dist/',
+        app:'<%= dirs.dist.root %>app/'
       },
     },
     files:{
       app:{
         // ours
-        less: '<%= dirs.app_sections_components %>*.less',
+        less: '<%= dirs.app_states_components %>*.less',
         compiled_css:'<%= dirs.app %>app_compiled.css',
 
         // vendor
@@ -56,28 +40,26 @@ module.exports = function (grunt) {
 
 
         // html and templates
-        templates:'<%= dirs.app_sections_components %>*tpl.html',
+        templates:'<%= dirs.app_states_components %>*tpl.html',
         compiled_templates:'<%= dirs.app %>templates_compiled.js',
         vendor_templates:[],
 
         // javascript
-        js_events_modules:'<%= dirs.sections %>',
-        js_contacts_modules:'',
-        js_reports_modules:'',
-        js_analyses_modules:'',
-        js_registration_modules:'',
-        js_payments_modules:'',
+        js_events_modules:'<%= dirs.states %>',
         js_modules: [
-          '<%= dirs.app_sections_components %>*.js',
-          '!<%= dirs.app_sections_components %>*{spec,utils}.js',
+          '<%= dirs.app_states_components %>*.js',
+          '!<%= dirs.app_states_components %>*{spec,utils}.js',
           '!<%= files.app.js_module_utils %>'
         ],
-        js_module_utils: '<%= dirs.app_sections_components %>*_utils.js',
+        js_module_utils: '<%= dirs.app_states_components %>*_utils.js',
         js_head_scripts:'<%= dirs.app %>head_scripts.js',
         compiled_js:'app_compiled.js',
         compiled_vendor_js:'<%= dirs.app %>vendor_compiled.js',
         require_base_compiled:'<%= dirs.app %>require-base_compiled.js',
-        vendor_js:[],
+        vendor_js:[
+          '<%= dirs.vendor %>angular-schema-form/schema-form.js',
+          '<%= dirs.vendor %>angular-schema-form/boostrap-decorator.js'
+        ],
 
         // all compiled elements (for clean);
 
@@ -88,14 +70,16 @@ module.exports = function (grunt) {
           '<%= files.app.require_base_compiled %>',
           '<%= files.app.compiled_css %>',
           '<%= files.app.compiled_vendor_css %>',
+          '<%= files.app.compiled_vendor_js %>'
         ],
         livereload:[
           '<%= files.app.compiled_src %>',
+          '<%= files.app.vendor_js %>',
           '<%= files.app.js_modules %>',
           '<%= files.app.js_module_utils %>',
         ],
 
-        spec:'<%= dirs.app_sections_components %>*spec.js',
+        spec:'<%= dirs.app_states_components %>*spec.js',
 
         test_unit:[
           '<%= files.app.vendor_js %>',
@@ -107,11 +91,7 @@ module.exports = function (grunt) {
         ]
       },
       dist:{
-        dashboard:{
-
-        },
-        registration:{},
-        payments:{},
+        compiled_src:'<%= files.app.compiled_src %>'
       }
     }
   };
@@ -146,23 +126,16 @@ module.exports = function (grunt) {
 
   grunt.registerTask('app', [
     'clean:app',
-    // dev runs on all the various sections by not specifying any in the grunt config
+    // dev runs on all the various states by not specifying any in the grunt config
     'requirejs_config_generator:app',
     'concurrent:app',
     'htmlbuild:app'
   ]);
 
-  grunt.registerTask('dist:plans', [
-    'clean:plans',
-    'requirejs_config_generator:plans',
-    'concurrent:dev',
-    'htmlbuild:dev'
+  grunt.registerTask('dist', [
+    'app'
   ]);
-  grunt.registerTask('dashboard', [
-    'clean:dashboard',
-    'concurrent:dashboard',
-    'htmlbuild:dashboard'
-  ]);
+
 
 
   grunt.registerTask('lint', [
@@ -172,8 +145,6 @@ module.exports = function (grunt) {
   grunt.registerTask('test', [
     'karma:standalone'
   ]);
-
-  grunt.registerTask('dist', []);
 
 
 
@@ -189,7 +160,7 @@ module.exports = function (grunt) {
 
   var _ = require('lodash');
   var fs = require('fs');
-  grunt.registerMultiTask('requirejs_config_generator', 'concatenating into final requirejs config file', function(section) {
+  grunt.registerMultiTask('requirejs_config_generator', 'concatenating into final requirejs config file', function(states) {
     var opts = this.options({
       baseFile:''
     });
@@ -198,9 +169,11 @@ module.exports = function (grunt) {
       baseUrl: './',
       deps: [],
       paths: {},
-      shim: {}
+      shim: {},
+      responseMap:{},
+      normedModules:{}
     },require(opts.baseFile));
-
+    var nm = outputObj.normedModules;
     // Iterate over all specified file groups.
     this.files.forEach(function(f) {
       f.src.filter(function(filepath) {
@@ -210,27 +183,44 @@ module.exports = function (grunt) {
         return false;
       })
       .forEach(function(path) {
-        // auto-create the keys for base section and component modules
-        // grunt.log.writeln('path',path);
-        if(path.indexOf('app/sections')===0){
-          outputObj.paths[path.replace(/^app\/(.*?)\/[^\/]+.js$/,'$1').replace(/\//g,'.')] = path;
+        // auto-create the keys for base states and component modules
+        var key;
+        var norm;
+        if(path.indexOf('app/states')===0){
+          key = path.replace(/^app\/(.*?)\/[^\/]+.js$/,'$1').replace(/\//g,'.');
+          norm = {};
+          norm.stateName = key; // plans.manage
+          norm.directoryUrl = path.replace(/^.+\/([^\/]+)\.js$/,'$1/'); // /plans/manage/
+          norm.camelCased = _.camelCase(key); // states/plans/manage/manage_module
         }
         else if(path.indexOf('app/components')===0){
-          outputObj.paths[path.replace(/^app\/(.*?)\/[^\/]+.js$/,'$1').replace(/\//g,'.')] = path;
+          key = path.replace(/^app\/(.*?)\/[^\/]+.js$/,'$1').replace(/\//g,'.');
+          norm = {};
+          norm.camelCased = _.camelCase(key.replace(/^components\./,'')); // states/plans/manage/manage_module
+        }
+        if(key){
+          outputObj.paths[key] = path;
+          var matches = grunt.file.read(path).match(/response ?\( ?["'][a-zA-Z0-9]+/g) || [];
+          matches.forEach(function (val,i) {
+            outputObj.responseMap[val.replace(/^response ?\( ?["']/,'')] = key;
+          });
+          norm.moduleKey = key; // plans.manage
+          nm[norm.moduleKey] = norm;
         }
       });
       _.forOwn(outputObj.paths,function(path,key){
-
         outputObj.paths[key] = grunt.config.process(path).replace(/^app\/(.+?)(\.js)?$/,'$1');
-        // grunt.log.writeln(key,':',outputObj.paths[key]);
+        var norm = nm[key];
+        if(norm){
+          norm.modulePath = outputObj.paths[key]; // states/plans/manage/manage_module
+          norm.templateUrl = norm.modulePath + '.tpl.html';
+          // grunt.log.writeln(key,':',outputObj.paths[key]);
+        }
       });
       // Write the destination file.
-      grunt.file.write(f.dest, 'requirejs.config(' + JSON.stringify(outputObj,null,'  ') + ');');
+      grunt.file.write(f.dest, 'window._sandboxConfig=' + JSON.stringify(outputObj,null,'  ') + ';\nrequirejs.config(window._sandboxConfig);');
 
       grunt.log.writeln('File "' + f.dest + '" created.');
     });
   });
-
-
-
 };

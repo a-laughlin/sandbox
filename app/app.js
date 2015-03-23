@@ -1,93 +1,21 @@
 sandbox(function(s){
-  var app = angular.module('app', ['ui.router']);
+  var app = angular.module('app', ['ui.router','schemaForm','ngResource']);
   var COMPILEPROVIDER; // so we can lazy-define directives
   var STATEPROVIDER; // ditto for states
   var INJECTOR;
   var HTTPPROVIDER;
   var TOSTATE;
   var TOPARAMS;
-  var stateCreatedInTime;
-  var DEBUG = false;
+  var DEBUG = !/stateParams/;
   s.modulePaths = requirejs.s.contexts._.config.paths;
 
 
   /**
    * app wide naming standardization
    */
-  var normedModules ={
-    byModulePathKey:{},
-    byStateName:{},
-    byModulePath:{},
-    components:{},
-    sections:{},
-    byUrl:{}
-  };
-
-  s._.forOwn(s.modulePaths,function (path,key) {
-    if(!/^(components|sections)/.test(path)){return;}
-    var normalized = {};
-    if(path.indexOf('section')===0){
-      normalized.stateName = key.replace(/^sections/,'app'); // plans.manage
-      normalized.stateUrl = path.replace(/^sections\/.+\/(.+?)$/,'$1/'); // /plans/manage/
-      normalized.url = path.replace(/^sections(\/.+\/).+?$/,'$1');
-      normalized.directiveName = s._.camelCase(key.replace(/^sections/,'app')); // sections/plans/manage/manage_module
-      normedModules.byStateName[normalized.stateName] = normalized;
-      normedModules.byUrl[normalized.url] = normalized;
-      normedModules.sections[key] = normalized;
-    } else {
-      normalized.directiveName = s._.camelCase(key.replace(/^components\./,'')); // sections/plans/manage/manage_module
-      normedModules.components[key] = normalized;
-    }
-    normalized.moduleKey = key; // plans.manage
-    normalized.modulePath = path; // sections/plans/manage/manage_module
-    normalized.templateUrl = normalized.modulePath + '.tpl.html';
-    normedModules.byModulePathKey[normalized.moduleKey] = normalized;
-    normedModules.byModulePath[normalized.modulePath] = normalized;
-  });
+  var normedModules = window._sandboxConfig.normedModules;
 
   // get a normalized/standardized module
-  function normalizedModule(input){
-    for(var key in normedModules){
-      if(normedModules[key][input]){
-        return normedModules[key][input];
-      }
-    }
-    throw new Error('no module exists with key,path,url,or state.name: '+input);
-  }
-
-  // utility function to lazy load states
-  var loadedSections = {};
-  function lazyLoadState($injector,$location, normedModule) {
-    stateCreatedInTime = false;
-    // ensure we load all parent states before trying to load a child
-    var statesToLoad = [];
-    if(loadedSections[normedModule.stateName]){
-      statesToLoad.push(s.msg('request '+key,{},{internal:true}));
-    } else {
-      normedModule.stateName.split('.').slice(1).reduce(function (result,next) {
-        var res = result + '.' + next;
-        loadedSections[res]=true;
-        statesToLoad.push(s.loadSandbox(res));
-        return res;
-      },'sections');
-    }
-    s.p.all(statesToLoad)
-    .then(function () {
-      if($location.path() === normedModule.url){
-        $injector.get("$state").go(normedModule.stateName,$location.search());
-      } else {
-        $location.path(normedModule.url);
-      }
-      s._.delay(function () {
-        if(stateCreatedInTime === false){
-          throw new Error('State transition failed. Did you create a componentDirective in '+normedModule.modulePath+'.js?');
-        }
-      },1000);
-    })
-    .catch(function (err) {
-      console.error('module not loaded - need to redirect',err);
-    });
-  }
 
   /**
    * angular module config() phase
@@ -98,15 +26,6 @@ sandbox(function(s){
     COMPILEPROVIDER = $compileProvider;
     HTTPPROVIDER = $httpProvider;
     STATEPROVIDER = $stateProvider;
-    $stateProvider.state({
-      name:'app',
-      url:'/',
-      controller:function ($state) {
-        this.states = normedModules.byStateName;
-      },
-      controllerAs:'app',
-      templateUrl:'app.tpl.html'
-    });
 
     // ensure we always have a trailing slash
     $urlRouterProvider.rule(function ensureTrailingSlash ($injector, $location) {
@@ -118,14 +37,16 @@ sandbox(function(s){
 
     // when route isn't found,
     $urlRouterProvider.otherwise(function ($injector,$location) {
-      lazyLoadState($injector,$location,normalizedModule($location.path()))
+      console.log('$urlRouterProvider.otherwise',$location.url());
+      $injector.get('$state').transitionTo($location.url(),{},{reload:false,inherit:false,notify:false,location:false});
     });
   }]);
 
   /**
    * angular module run() phase
    */
-  app.run(['$rootScope', '$location','$injector',function($rootScope,$location,$injector){
+  app.run(['$rootScope', '$location','$state','$injector','$urlMatcherFactory',
+    function($rootScope,$location,$state,$injector,$urlMatcherFactory){
     INJECTOR = $injector;
     // enable rootscope digests on promise resolution, as $q does
     // see: https://github.com/angular/angular.js/blob/master/src/ng/q.js#L219
@@ -136,12 +57,9 @@ sandbox(function(s){
     });
 
     $rootScope.$on('$stateChangeStart', function(event, toState, toParams, fromState, fromParams){
+      console.log('$stateChangeStart to '+toState.name+' from '+fromState.name+' - fired when the transition begins.');
       TOSTATE = toState;
       TOPARAMS = toParams;
-      if(toState.name!== 'app'){
-        normedModules.byStateName[toState.name].params = toParams;
-      }
-      console.log('$stateChangeStart to '+toState.name+' from '+fromState.name+' - fired when the transition begins.');
     });
 
     $rootScope.$on('$stateChangeError', function(event, toState, toParams, fromState, fromParams,err){
@@ -152,14 +70,56 @@ sandbox(function(s){
     $rootScope.$on('$stateChangeSuccess', function(event, toState, toParams, fromState, fromParams){
       console.log('$stateChangeSuccess to '+toState.name+' from '+fromState.name+' - fired once the state transition is complete.');
     });
-    var notFoundCount = 0;
-    $rootScope.$on('$stateNotFound', function(event, unfoundState, fromState, fromParams){
+    $rootScope.$on('$stateNotFound', function(event, unfoundState, fromState, fromParams,err){
       console.log('$stateNotFound '+unfoundState.to+'  - fired when a state cannot be found by its name.');
       event.preventDefault();
-      if(++notFoundCount > 100){
-        throw new Error('State not found limit 100.');
-      }
-      lazyLoadState($injector,$location,normalizedModule(unfoundState.to));
+
+      var isPath = unfoundState.to.charAt(0) === '/';
+      var pathPartsArray = isPath
+        ? ['states'].concat(unfoundState.to.replace(/^\/|\/$/g,'').split('/'))
+        : unfoundState.to.split('.'); // assume state name
+
+      var validParts = [];
+      var validStateNames = [];
+      var normedStates = [];
+      var normedStatesToLoad = [];
+
+      pathPartsArray.forEach(function (part,i) {
+        var stateName = validParts.concat(part).join('.')
+        var norm = normedModules[stateName];
+        if(norm){
+          norm.parentStateName = validParts.join('.');
+          validParts.push(part);
+          validStateNames.push(stateName);
+          normedStates.push(norm);
+          if(!$state.get(norm.stateName)){
+            normedStatesToLoad.push(norm);
+          }
+        }
+      });
+
+      return s.p.each(normedStatesToLoad,function (norm,i) {
+        s._.delay(function () {
+          if(!norm.urlMatcher){
+           throw new Error('State transition failed. Did you run addState in '+norm.modulePath+'.js?');
+          }
+        },2000);
+        return s.loadSandbox(norm.moduleKey).then(function(){
+          var parent = normedModules[norm.parentStateName] || {stateAbsoluteUrlPattern:''};
+          var parentState = $state.get(norm.parentStateName);
+          norm.stateAbsoluteUrlPattern = parent.stateAbsoluteUrlPattern + $state.get(norm.stateName).url;
+          norm.urlMatcher = $urlMatcherFactory.compile(norm.stateAbsoluteUrlPattern);
+          return norm;
+        });
+      })
+      .then(function () {
+        var norm = normedStatesToLoad[normedStatesToLoad.length-1];
+        // need to reset TOPARAMS here because the state resets to the last
+        // known state before this .then() block runs, resetting the url
+        // back to its previous state before the new state's params get passed
+        TOPARAMS = (isPath ? norm.urlMatcher.exec(unfoundState.to) : unfoundState.toParams);
+        $state.transitionTo(norm.stateName, TOPARAMS, {reload:false,notify:true,location:true,inherit:false});
+      })
     });
   }]);
 
@@ -191,10 +151,9 @@ sandbox(function(s){
     }
   }
 
-  // enable different publish targets
   var publishTo = {
     all:function(envelope){
-      s._.forIn(normedModules.byModulePathKey,function (module,key) {
+      s._.forIn(normedModules,function (module,key) {
         s.msg(envelope.topic,envelope.data,{channel:key});
       });
     },
@@ -295,6 +254,10 @@ sandbox(function(s){
       whiteList(envelope,'components.at_http');
       return INJECTOR.get('$http');
     },
+    '$resource':function (envelope) {
+      whiteList(envelope,'components.at_http');
+      return INJECTOR.get('$resource');
+    },
     '$location':function (envelope) {
       whiteList(envelope,'components.at_location');
       return INJECTOR.get('$location');
@@ -305,18 +268,21 @@ sandbox(function(s){
     },
     goToState:function (envelope) {
       // whiteList(envelope,/^sections/);
-      var $state = INJECTOR.get('$state')
-      $state.go(envelope.data);
-      // $state.go(envelope.data,$state.$current.params,{reload:true});
+      var $state = INJECTOR.get('$state');
+      if(!s._.isArray(envelope.data)){
+        throw new Error('goToState requires an array');
+      }
+      $state.transitionTo.apply($state,envelope.data);
+    },
+    stateName:function (envelope) {
+      // whiteList(envelope,/^sections/);
+      return TOSTATE.name;
+    },
+    stateParams:function (envelope) {
+      return TOPARAMS;
     },
     '$compile':function (envelope) {
       return INJECTOR.get('$compile');
-      // $state.go(envelope.data,$state.$current.params,{reload:true});
-    },
-    '$httpBackend':function (envelope) {
-      whiteList('components.at_mock_backend');
-      return INJECTOR.get('$httpBackend');
-      // $state.go(envelope.data,$state.$current.params,{reload:true});
     },
     httpInterceptor:function (envelope) {
       app.factory(envelope.data.name,function () {
@@ -325,11 +291,10 @@ sandbox(function(s){
       HTTPPROVIDER.interceptors.push(envelope.data.name);
     },
     addState:function (envelope) {
-      var norm = normalizedModule(envelope.source);
-      if(norm.moduleKey.indexOf('section') !== 0){
-        throw new Error('addState only works in sections');
+      var norm = normedModules[envelope.source];
+      if(norm.moduleKey.indexOf('states') !== 0){
+        throw new Error('addState only works in statess');
       }
-      stateCreatedInTime = true;
       envelope.data.state = envelope.data.state || {};
 
       var stateObj = {};
@@ -338,36 +303,40 @@ sandbox(function(s){
       } else {
         stateObj.name = norm.stateName;
         stateObj.templateUrl = norm.templateUrl;
-        stateObj.url = norm.stateUrl + (envelope.data.stateParams || '');
+        stateObj.url = norm.directoryUrl + (envelope.data.stateParams || '');
         stateObj.abstract = envelope.data.state.abstract;
-        stateObj.controllerAs = norm.directiveName;
-
+        stateObj.controllerAs = norm.camelCased;
         if(envelope.data.controller){
           stateObj.controller = function(resolutions,$scope){
-            envelope.data.controller.apply(this,arguments);
+            // temporary workaround to enable broadcast/emit until it's hooked into messaging.
+            this.msgAncestors = function (str,data,options) {
+              $scope.$emit.call($scope,str,data);
+            }
+            this.msgDescendents = function (str,data,options) {
+              $scope.$broadcast.call($scope,str,data);
+            }
+            this.on = function () {
+              $scope.$on.apply($scope,arguments);
+            };
+            $scope.$on('$destroy',function () {
+              delete this.on;
+              delete this.msgAncestors;
+              delete this.msgDescendents;
+            });
+            envelope.data.controller.call(this,resolutions);
           };
         }
         stateObj.resolve = {
-          resolutions:function ($state,$stateParams) {
-            var obj = {
-              'toStateName':TOSTATE.name,
-              'params': s._.transform(TOPARAMS,function(result,val,key){
-                result[key] = +val <= Infinity ? +val : val;
-              })
-            };
-            return envelope.data.resolve ? envelope.data.resolve(obj): obj;
+          resolutions:function () {
+            if(envelope.data.resolve){return envelope.data.resolve();}
           }
         };
       }
       STATEPROVIDER.state(stateObj);
     },
     componentDirective:function (envelope) {
-      var norm = normalizedModule(envelope.source);
-      if(norm.moduleKey.indexOf('section')=== 0){
-        // create a state that acts like a directive
-        throw new Error('use addState instead');
-      }
-      COMPILEPROVIDER.directive(norm.directiveName,function(){
+      var norm = normedModules[envelope.source];
+      COMPILEPROVIDER.directive(norm.camelCased,function(){
         var directiveDefinitionObj = {
           require:envelope.data.require,
           replace:false,
@@ -376,7 +345,7 @@ sandbox(function(s){
           scope:true,
           bindToController:true,
           controller:envelope.data.controller,
-          controllerAs:norm.directiveName,
+          controllerAs:norm.camelCased,
           compile: function compile(tElement, tAttrs, transclude) {
             if(envelope.data.compile){
               envelope.data.compile.call(this,tElement,tAttrs);
@@ -402,11 +371,9 @@ sandbox(function(s){
       });
     },
     templateDirective:function (envelope) {
-      var norm = normalizedModule(envelope.source);
-
-      console.log('generatorDirective',arguments);
-      COMPILEPROVIDER.directive(envelope.data.name,function(){
-        var directiveDefinitionObj = {};
+      var norm = normedModules[envelope.source];
+      console.log('in templateDirective',norm);
+      COMPILEPROVIDER.directive(norm.camelCased,function(){
         return {
           // template:envelope.data.template,
           templateUrl:norm.templateUrl,
@@ -437,7 +404,8 @@ sandbox(function(s){
       });
     },
     decoratorDirective:function (envelope) {
-      var norm = normalizedModule(envelope.source);
+      var norm = normedModules[envelope.source];
+      console.log('in decoratorDirective');
       COMPILEPROVIDER.directive(envelope.data.name,function(){
         var directiveDefinitionObj = {};
         return {
@@ -471,6 +439,7 @@ sandbox(function(s){
       });
     }
   };
+  s.addSandboxMethods(msgParsers);
 
   // manually bootstrap our angular app
   angular.element(document).ready(function() {

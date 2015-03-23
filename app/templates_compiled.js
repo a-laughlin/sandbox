@@ -1,4 +1,4 @@
-angular.module('templates-dashboard', ['app.tpl.html', 'sections/cat/cat.tpl.html', 'sections/cat/kittens/kittens.tpl.html', 'sections/simple/simple.tpl.html']);
+angular.module('templates-dashboard', ['app.tpl.html', 'states/cat/cat.tpl.html', 'states/cat/kittens/kittens.tpl.html', 'states/simple/simple.tpl.html', 'states/states.tpl.html']);
 
 angular.module("app.tpl.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("app.tpl.html",
@@ -14,8 +14,8 @@ angular.module("app.tpl.html", []).run(["$templateCache", function($templateCach
     "");
 }]);
 
-angular.module("sections/cat/cat.tpl.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("sections/cat/cat.tpl.html",
+angular.module("states/cat/cat.tpl.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("states/cat/cat.tpl.html",
     "<h3>Cat!</h3>\n" +
     "<ul>\n" +
     "  <li>name:{{appCat.cat.name}}</li>\n" +
@@ -26,14 +26,28 @@ angular.module("sections/cat/cat.tpl.html", []).run(["$templateCache", function(
     "");
 }]);
 
-angular.module("sections/cat/kittens/kittens.tpl.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("sections/cat/kittens/kittens.tpl.html",
+angular.module("states/cat/kittens/kittens.tpl.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("states/cat/kittens/kittens.tpl.html",
     "Kittens be here!!\n" +
     "");
 }]);
 
-angular.module("sections/simple/simple.tpl.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("sections/simple/simple.tpl.html",
+angular.module("states/simple/simple.tpl.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("states/simple/simple.tpl.html",
     "Simple statement: {{appSimple.statement}}\n" +
+    "");
+}]);
+
+angular.module("states/states.tpl.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("states/states.tpl.html",
+    "<div class=\"container\">\n" +
+    "  <div class=\"row\">\n" +
+    "    <ul class=\"nav nav-pills nav-stacked col-sm-2\">\n" +
+    "      <li><a ui-sref=\"app\">Home</a></li>\n" +
+    "      <li><a href=\"#\" ui-sref=\"{{state.stateName}}\" ng-repeat=\"state in app.states\">state: {{state.stateName}}</a></li>\n" +
+    "    </ul>\n" +
+    "    <div class=\"col-sm-10\" ui-view></div>\n" +
+    "  </div>\n" +
+    "</div>\n" +
     "");
 }]);
