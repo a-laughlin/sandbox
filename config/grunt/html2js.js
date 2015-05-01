@@ -1,11 +1,17 @@
 module.exports = {
-  options: {
-    // custom options, see below
-    base:'<%= dirs.app %>'
-  },
-  dashboard: {
+
+  app: {
     src: '<%= files.app.templates %>',
-    dest: '<%= files.app.compiled_templates %>'
+    dest: '<%= files.app.compiled_templates %>',
+    options: {
+      // custom options, see below
+      base:'<%= dirs.app %>'
+    },
   },
-  registration:{},
+  dist:{
+    options: {
+      // custom options, see below
+      base:'<%= dirs.dist %>'
+    },
+  },
 };

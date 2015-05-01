@@ -13,7 +13,8 @@ module.exports = {
     'postal':'<%= dirs.bower %>postal.js/lib/postal.js',
     'angular-mocks':'<%= dirs.bower %>angular-mocks/angular-mocks.js',
     'es5-shim':'<%= dirs.bower %>es5-shim/es5-shim.js',
-    'es5-sham':'<%= dirs.bower %>es5-shim/es5-sham.js'
+    'es5-sham':'<%= dirs.bower %>es5-shim/es5-sham.js',
+    'angular-modelizer':'<%= dirs.bower %>angular-modelizer/dist/angular-modelizer.js'
   },
   map:{
     '*': {
@@ -28,6 +29,7 @@ module.exports = {
     'angular-ui-router': {deps: ['angular'] },
     'angular-mocks': {deps: ['angular'] },
     'postal': {exports: 'postal' },
+    'angular-modelizer':{deps: ['angular'] },
     'app':{
       deps:[
         'sandbox',
@@ -35,6 +37,7 @@ module.exports = {
         'compiled-templates',
         'angular',
         'postal',
+        'angular-modelizer',
         'angular-ui-router',
       ]
     }

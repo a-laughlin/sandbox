@@ -1,3 +1,19 @@
+
+// resource is just like a class for an individual model.  to create a collection,
+// .factory('Stuff', function($resource) {
+//     var url, defaultParams, actions;
+
+//     url = '/api/stuff/:stuffId/';
+//     defaultParams = { stuffId: '@stuffId' };
+//     actions = {
+//         saveAll: { method: 'PUT', isArray: true }
+//     };
+
+//     return $resource(url, defaultParams, actions);
+// });
+// // use
+// Stuff.$saveAll([{id: 1, foo: 'bar'}, {id: 2, foo: 'boo'}]);
+
 sandbox(function (s) {
 
   /**

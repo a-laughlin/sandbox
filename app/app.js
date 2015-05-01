@@ -1,5 +1,5 @@
 sandbox(function(s){
-  var app = angular.module('app', ['ui.router','schemaForm','ngResource']);
+  var app = angular.module('app', ['ui.router','angular-modelizer']);
   var COMPILEPROVIDER; // so we can lazy-define directives
   var STATEPROVIDER; // ditto for states
   var INJECTOR;

@@ -1,5 +1,5 @@
 module.exports = {
-  dev: {
+  app: {
     files: {
       '<%= files.app.compiled_css %>':'<%= files.app.less %>',
       // '<%= files.app.compiled_vendor_css %>':[

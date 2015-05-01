@@ -1,18 +1,4 @@
-angular.module('templates-dashboard', ['app.tpl.html', 'states/cat/cat.tpl.html', 'states/cat/kittens/kittens.tpl.html', 'states/simple/simple.tpl.html', 'states/states.tpl.html']);
-
-angular.module("app.tpl.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("app.tpl.html",
-    "<div class=\"container\">\n" +
-    "  <div class=\"row\">\n" +
-    "    <ul class=\"nav nav-pills nav-stacked col-sm-2\">\n" +
-    "      <li><a ui-sref=\"app\">Home</a></li>\n" +
-    "      <li><a href=\"#\" ui-sref=\"{{state.stateName}}\" ng-repeat=\"state in app.states\">state: {{state.stateName}}</a></li>\n" +
-    "    </ul>\n" +
-    "    <div class=\"col-sm-10\" ui-view></div>\n" +
-    "  </div>\n" +
-    "</div>\n" +
-    "");
-}]);
+angular.module('templates-app', ['states/cat/cat.tpl.html', 'states/cat/kittens/kittens.tpl.html', 'states/simple/simple.tpl.html', 'states/states.tpl.html']);
 
 angular.module("states/cat/cat.tpl.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("states/cat/cat.tpl.html",

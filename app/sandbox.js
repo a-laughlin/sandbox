@@ -1,4 +1,5 @@
 (function (win) {
+  var config = win._sandboxConfig;
   var modules = {};
   win.sandbox = function(fn){
     return define(['sandbox','module'],function(sbox,module){
@@ -51,7 +52,20 @@
           return;
         }
         return postal.subscribe(envelope);
-      }
+      },
+      rq:function (msgStr,data,options) {
+        var self = this;
+        var msg = _.isArray(msgStr) ? msgStr : [msgStr];
+        var result = this._.map(msg,function (oneMsg,i) {
+          var moduleName = config.responseMap[oneMsg];
+          if(!moduleName){throw new Error('No response defined with name: ' + oneMsg); }
+          return self.msg('request '+moduleName+'.'+oneMsg,data,options);
+        });
+        return result.length === 1 ? result[0] : result;
+      },
+      response:function (msgStr,fn,params,options) {
+        return this.on(msgStr,fn,params,options);
+      },
     };
 
     function Module(moduleName){
@@ -61,7 +75,7 @@
       this.dfd = bluebird.pending();
     }
 
-    lodash.forOwn(requirejs.s.contexts._.config.paths,function (path,id) {
+    lodash.forIn(config.paths,function (path,id) {
       modules[id] = new Module(id);
     });
 
@@ -71,9 +85,15 @@
       }
       if(modules[name].state === 'defined'){
         modules[name].state = 'requested';
-        require([name],function(){},function(err){throw err;});
+        require([name],function(){});
       }
       return modules[name].dfd.promise;
+    };
+    modules.app.sandbox.addSandboxMethods = function(obj){
+      for (var method in obj){
+        // debugger;
+        Sandbox.prototype[method] = this.p.method(obj[method]);
+      }
     };
     var msgInterceptor;
     var onInterceptor;

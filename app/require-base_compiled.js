@@ -16,6 +16,7 @@ window._sandboxConfig={
     "angular-mocks": "bower/angular-mocks/angular-mocks",
     "es5-shim": "bower/es5-shim/es5-shim",
     "es5-sham": "bower/es5-shim/es5-sham",
+    "angular-modelizer": "bower/angular-modelizer/dist/angular-modelizer",
     "components.at_cat_model": "components/at_cat_model/at_cat_model",
     "components.at_collection": "components/at_collection/at_collection",
     "components.at_http": "components/at_http/at_http",
@@ -57,6 +58,11 @@ window._sandboxConfig={
     "postal": {
       "exports": "postal"
     },
+    "angular-modelizer": {
+      "deps": [
+        "angular"
+      ]
+    },
     "app": {
       "deps": [
         "sandbox",
@@ -64,6 +70,7 @@ window._sandboxConfig={
         "compiled-templates",
         "angular",
         "postal",
+        "angular-modelizer",
         "angular-ui-router"
       ]
     }
