@@ -5,6 +5,8 @@
   "repository": "git@github.com:AttendDotCom/attend-sandbox-demo.git",
   "devDependencies": {
     "broccoli": "^0.16.2",
+    "broccoli-merge-trees": "^0.2.1",
+    "broccoli-static-compiler": "^0.2.1",
     "grunt-concurrent": "~0.4.1",
     "grunt-contrib-clean": "~0.5.0",
     "grunt-contrib-concat": "~0.3.0",
