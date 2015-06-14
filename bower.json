@@ -19,7 +19,7 @@
     "components-font-awesome": "4.3.0",
     "moment": "2.9.0",
     "moment-timezone": "0.3.0",
-    "lodash": "3.7.0",
+    "lodash": "3.9.0",
     "requirejs": "2.1.16",
     "bluebird": "2.9.8",
     "postal.js": "1.0.0",
@@ -35,6 +35,6 @@
   },
   "resolutions": {
     "angular": "1.4.0-rc.1",
-    "lodash": "3.7.0"
+    "lodash": "3.9.0"
   }
 }

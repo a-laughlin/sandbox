@@ -1,26 +1,22 @@
 {
-  "name": "attend-sandbox-demo",
-  "version": "3.0.0",
+  "name": "attend-sandbox",
+  "version": "0.0.1",
   "dependencies": {},
-  "repository": "git@github.com:AttendDotCom/attend-sandbox-demo.git",
+  "repository": "git@github.com:AttendDotCom/attend-sandbox.git",
   "devDependencies": {
     "broccoli": "*",
-    "broccoli-merge-trees": "*",
+    "broccoli-concat": "*",
     "broccoli-funnel": "*",
     "broccoli-inject-livereload": "*",
-    "broccoli-ng-annotate" : "*",
-    "broccoli-templater" : "*",
-    "broccoli-concat" : "*",
     "broccoli-less-single": "*",
+    "broccoli-merge-trees": "*",
     "broccoli-stew": "*",
-    "lodash": "3.9.0",
+    "broccoli-string-replace": "*",
     "karma": "~0.12.22",
     "karma-chrome-launcher": "~0.1.4",
     "karma-jasmine": "~0.1.5",
-    "load-grunt-config": "~0.13.0",
-    "load-grunt-tasks": "~0.2.0",
-    "node-stringify": "0.0.9",
-    "time-grunt": "~0.2.1"
+    "livereload": "^0.3.7",
+    "lodash": "3.9.0"
   },
   "engines": {
     "node": ">=0.10.24"

@@ -1,19 +1,15 @@
 sandbox(function (s) {
-  return s.msg('addState',{
-    state:{
-      overwrite:true,
-      name:'states',
-      url:'/',
-      templateUrl:'states/states.tpl.html',
-      controllerAs:'states',
-      resolve:{
-        resolutions:function  () {
-
-        }
-      },
-      controller:function () {
-        // console.log('states Controller 1running');
-      }
+  s.msg('addState',{
+    resolve:function ($stateData) {
+      console.log('states.js resolve');
+    },
+    controller:function () {
+      console.log('states.js controller');
+      var self = this;
+      self.states = [];
+      _.forIn(window._sandboxConfig.normedModules,function(val,key){
+        if(key.indexOf('states')>-1){self.states.push(val)}
+      });
     }
   });
 });

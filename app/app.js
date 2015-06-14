@@ -27,18 +27,14 @@ sandbox(function(s){
     HTTPPROVIDER = $httpProvider;
     STATEPROVIDER = $stateProvider;
 
-    // ensure we always have a trailing slash
-    $urlRouterProvider.rule(function ensureTrailingSlash ($injector, $location) {
-      var path = $location.url();
-      if (path[path.length - 1] === '/' || path.indexOf('/?') > -1) {return;}
-      if (path.indexOf('?') > -1) {return path.replace('?', '/?'); }
-      return path + '/';
-    });
-
     // when route isn't found,
     $urlRouterProvider.otherwise(function ($injector,$location) {
-      console.log('$urlRouterProvider.otherwise',$location.url());
-      $injector.get('$state').transitionTo($location.url(),{},{reload:false,inherit:false,notify:false,location:false});
+    // ensure we always have a trailing slash
+      var path = $location.url();
+      if (!/\/\??$/.test(path)){
+        path = ((path[path.length - 1] === '?') ? path.replace(/\?$/, '/?') : path + '/');
+      }
+      $injector.get('$state').transitionTo(path,{},{reload:false,inherit:false,notify:false,location:false});
     });
   }]);
 
@@ -73,10 +69,12 @@ sandbox(function(s){
     $rootScope.$on('$stateNotFound', function(event, unfoundState, fromState, fromParams,err){
       console.log('$stateNotFound '+unfoundState.to+'  - fired when a state cannot be found by its name.');
       event.preventDefault();
-
+      var baseState = ['states'];
       var isPath = unfoundState.to.charAt(0) === '/';
-      var pathPartsArray = isPath
-        ? ['states'].concat(unfoundState.to.replace(/^\/|\/$/g,'').split('/'))
+      var pathPartsArray = unfoundState.to === '/'
+        ? baseState
+        : isPath
+        ? baseState.concat(unfoundState.to.replace(/^\/|\/$/g,'').split('/'))
         : unfoundState.to.split('.'); // assume state name
 
       var validParts = [];
@@ -105,12 +103,13 @@ sandbox(function(s){
           }
         },2000);
         return s.loadSandbox(norm.moduleKey).then(function(){
+          console.log('loaded state',norm.moduleKey);
           var parent = normedModules[norm.parentStateName] || {stateAbsoluteUrlPattern:''};
           var parentState = $state.get(norm.parentStateName);
           norm.stateAbsoluteUrlPattern = parent.stateAbsoluteUrlPattern + $state.get(norm.stateName).url;
           norm.urlMatcher = $urlMatcherFactory.compile(norm.stateAbsoluteUrlPattern);
           return norm;
-        });
+        })
       })
       .then(function () {
         var norm = normedStatesToLoad[normedStatesToLoad.length-1];
@@ -119,6 +118,9 @@ sandbox(function(s){
         // back to its previous state before the new state's params get passed
         TOPARAMS = (isPath ? norm.urlMatcher.exec(unfoundState.to) : unfoundState.toParams);
         $state.transitionTo(norm.stateName, TOPARAMS, {reload:false,notify:true,location:true,inherit:false});
+      })
+      .catch(function (err) {
+        console.log('loadModules err',err);
       })
     });
   }]);

@@ -3,15 +3,21 @@
   <title>Dashboard</title>
 
 
-<link type="text/css" rel="stylesheet" href="../bower/components-font-awesome/css/font-awesome.css" />
-<link type="text/css" rel="stylesheet" href="../bower/bootstrap/dist/css/bootstrap.css" />
-<link type="text/css" rel="stylesheet" href="../app_compiled.css" />
-<script>var indexLoadTime = (new Date()).getTime();</script>
+<!-- build:style vendor -->
+<!-- /build -->
+<!-- build:style css -->
+<!-- /build -->
 
+<link rel="stylesheet" type="text/css" href="bower/bootstrap/dist/css/bootstrap.css">
+<link rel="stylesheet" type="text/css" href="app.css">
+<script>var indexLoadTime = (new Date()).getTime();</script>
+<!-- build:script head -->
+<!-- /build -->
 </head>
 
 <body>
   <div ui-view></div>
-  <script data-main="/require-base_compiled" src="bower/requirejs/require.js"></script>
+  <script src="bower/requirejs/require.js"></script>
+  <script src="require-base.js"></script>
 </body>
 </html>
