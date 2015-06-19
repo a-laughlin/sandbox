@@ -105,6 +105,8 @@ trees.output = bMergeTrees([
 module.exports = trees.output;
 
 bStew.beforeBuild(trees.output,function () {
+  // livereload tmp -i 500
+  // require('child-process').exec
   // livereload = require('livereload');
   // server = livereload.createServer();
   // server.watch(__dirname + "/tmp");
