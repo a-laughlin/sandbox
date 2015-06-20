@@ -23,7 +23,7 @@ var logTree = function(treeName,options){
 function normModule(dirPath,relativePath){
   if(relativePath.indexOf('.js') < 0)return true;
   var norm = {};
-  norm.directoryUrl = relativePath.replace(/(.*?)\/?[a-zA-Z0-9_-]+\.js$/,'$1');
+  norm.directoryUrl = relativePath.replace(/(.*?)\/?[a-zA-Z0-9_-]+\.js$/,'$1') || '/';
   if(dirPath.indexOf('states') > -1){ // working with a state
     norm.moduleKey = norm.directoryUrl.replace(/\//g,'.').replace(/\.$/,'');
     norm.stateName = norm.moduleKey = norm.moduleKey ? 'states.'+ norm.moduleKey : 'states';
@@ -41,7 +41,7 @@ function normModule(dirPath,relativePath){
   var content = fs.readFileSync(dirPath+relativePath,'utf-8');
   var matches = content.match(/response ?\( ?["'][a-zA-Z0-9]+/g) || [];
   matches.forEach(function (val,i) {
-    outputObj.responseMap[val.replace(/^response ?\( ?["']/,'')] = norm.moduleKey;
+    outputObj.onAsyncMap[val.replace(/^response ?\( ?["']/,'')] = norm.moduleKey;
   });
   return true;
 }
@@ -51,7 +51,7 @@ var outputObj = {
   deps: [],
   paths: {},
   shim: {},
-  responseMap:{},
+  onAsyncMap:{},
   normedModules:{}
 };
 

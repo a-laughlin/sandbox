@@ -1,16 +1,7 @@
-// sandbox(function (s) {
-//   s.msg('componentDirective',{
-//     // resolve:function () {
-//     //   return s.msg('request components.simple.hi'); // request the component
-//     // },
-//     controller:function(){
-//       this.statement = 'hi';//simpleMessage;
-//     }
-//   });
-// });
 sandbox(function (s) {
-  s.msg('componentDirective',{
+  s.msg('addState',{
     controller:function () {
+      console.log('simple state controller');
       this.statement = 'hi';//simpleMessage;
     }
   });
