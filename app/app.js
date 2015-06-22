@@ -10,17 +10,9 @@ sandbox(function(s){
   s.modulePaths = requirejs.s.contexts._.config.paths;
 
 
-  /**
-   * app wide naming standardization
-   */
   var normedModules = window._sandboxConfig.normedModules;
 
-  // get a normalized/standardized module
 
-  /**
-   * angular module config() phase
-   * All it does is handle route and state creation.
-   */
   app.config(['$stateProvider','$urlRouterProvider','$compileProvider',
   function ($stateProvider,$urlRouterProvider,$compileProvider,$httpProvider) {
     COMPILEPROVIDER = $compileProvider;
@@ -39,9 +31,6 @@ sandbox(function(s){
     });
   }]);
 
-  /**
-   * angular module run() phase
-   */
   app.run(['$rootScope', '$location','$state','$injector','$urlMatcherFactory',
     function($rootScope,$location,$state,$injector,$urlMatcherFactory){
     INJECTOR = $injector;
@@ -70,30 +59,24 @@ sandbox(function(s){
     $rootScope.$on('$stateNotFound', function(event, unfoundState, fromState, fromParams,err){
       console.log('$stateNotFound '+unfoundState.to+'  - fired when a state cannot be found by its name.');
       event.preventDefault();
-      var baseState = ['states'];
       var isPath = unfoundState.to.charAt(0) === '/';
       var pathPartsArray = unfoundState.to === '/'
-        ? baseState
+        ? ['states']
         : isPath
-        ? baseState.concat(unfoundState.to.replace(/^\/|\/$/g,'').split('/'))
-        : unfoundState.to.split('.'); // assume state name
+          ? ['states'].concat(unfoundState.to.replace(/^\/|\/$/g,'').split('/'))
+          : unfoundState.to.split('.'); // assume state name
 
       var validParts = [];
-      var validStateNames = [];
-      var normedStates = [];
+      var activeNormedStates = [];
       var normedStatesToLoad = [];
 
       pathPartsArray.forEach(function (part,i) {
         var stateName = validParts.concat(part).join('.')
         var norm = normedModules[stateName];
         if(norm){
-          norm.parentStateName = validParts.join('.');
           validParts.push(part);
-          validStateNames.push(stateName);
-          normedStates.push(norm);
-          if(!$state.get(norm.stateName)){
-            normedStatesToLoad.push(norm);
-          }
+          activeNormedStates.push(norm);
+          if(!$state.get(norm.stateName)){normedStatesToLoad.push(norm);}
         }
       });
 
@@ -105,20 +88,19 @@ sandbox(function(s){
         },2000);
         return s.loadSandbox(norm.moduleKey).then(function(){
           console.log('loaded state',norm.moduleKey);
-          var parent = normedModules[norm.parentStateName] || {stateAbsoluteUrlPattern:'/'};
-          var parentState = $state.get(norm.parentStateName);
-          norm.stateAbsoluteUrlPattern = parent.stateAbsoluteUrlPattern + $state.get(norm.stateName).url + '/';
+          norm.stateObj = $state.get(norm.stateName);
+          norm.stateAbsoluteUrlPattern = s._(activeNormedStates).pluck('stateObj').pluck('url').value().join('');;
           norm.urlMatcher = $urlMatcherFactory.compile(norm.stateAbsoluteUrlPattern);
           return norm;
         })
       })
       .then(function () {
-        var norm = normedStates[normedStates.length-1];
+        var norm = activeNormedStates[activeNormedStates.length-1];
         console.log('normedState',norm);
         // need to reset TOPARAMS here because the state resets to the last
         // known state before this .then() block runs, resetting the url
         // back to its previous state before the new state's params get passed
-        TOPARAMS = (isPath ? norm.urlMatcher.exec(unfoundState.to) : unfoundState.toParams);
+        TOPARAMS = (isPath ? norm.urlMatcher.exec(unfoundState.to) : _.merge(TOPARAMS||{},unfoundState.toParams));
         $state.transitionTo(norm.stateName, TOPARAMS, {reload:false,notify:true,location:true,inherit:false});
       })
       .catch(function (err) {
@@ -127,6 +109,8 @@ sandbox(function(s){
     });
   }]);
 
+  s.on('stateName',function (envelope) {return TOSTATE.name; });
+  s.on('stateParams',function (envelope) {return TOPARAMS; });
   s.on('goToState',function (envelope) {
     // whiteList(envelope,/^sections/);
     var $state = INJECTOR.get('$state');
@@ -135,20 +119,6 @@ sandbox(function(s){
     }
     $state.transitionTo.apply($state,envelope.data);
   });
-
-  s.on('$window',function (envelope) {return INJECTOR.get('$window'); });
-  s.on('$location',function (envelope) {return INJECTOR.get('$location'); });
-  s.on('$compile',function (envelope) {return INJECTOR.get('$compile'); });
-  s.on('stateName',function (envelope) {return TOSTATE.name; });
-  s.on('stateParams',function (envelope) {return TOPARAMS; });
-
-  s.on('httpInterceptor',function (envelope) {
-    app.factory(envelope.data.name,function () {
-      return envelope.data.httpInterceptors;
-    });
-    HTTPPROVIDER.interceptors.push(envelope.data.name);
-  });
-
   s.on('addState',function (envelope) {
     var norm = normedModules[envelope.source];
     if(norm.moduleKey.indexOf('states') !== 0){
@@ -172,22 +142,7 @@ sandbox(function(s){
       stateObj.controllerAs = norm.camelCased;
       if(envelope.data.controller){
         stateObj.controller = function(resolutions,$scope){
-          // temporary workaround to enable broadcast/emit until it's hooked into messaging.
-          this.msgAncestors = function (str,data,options) {
-            $scope.$emit.call($scope,str,data);
-          }
-          this.msgDescendents = function (str,data,options) {
-            $scope.$broadcast.call($scope,str,data);
-          }
-          this.on = function () {
-            $scope.$on.apply($scope,arguments);
-          };
-          $scope.$on('$destroy',function () {
-            delete this.on;
-            delete this.msgAncestors;
-            delete this.msgDescendents;
-          });
-          envelope.data.controller.call(this,resolutions);
+          envelope.data.controller.apply(this,arguments);
         };
       }
       stateObj.resolve = {
@@ -199,78 +154,6 @@ sandbox(function(s){
     STATEPROVIDER.state(stateObj);
   },{},{passEnvelope:true});
 
-  s.on('componentDirective',function (data) {
-    var norm = window._sandboxConfig.normedModules[envelope.source];
-    COMPILEPROVIDER.directive(norm.camelCased,function(){
-      var directiveDefinitionObj = {
-        require:envelope.data.require,
-        replace:false,
-        transclude:false,
-        restrict:'E',
-        scope:true,
-        bindToController:true,
-        controller:envelope.data.controller,
-        controllerAs:norm.camelCased,
-        compile: function compile(tElement, tAttrs, transclude) {
-          if(envelope.data.compile){
-            envelope.data.compile.call(this,tElement,tAttrs);
-          }
-          var args = {};
-          if(envelope.data.preLink){
-            args.pre = function (scope, iElement, iAttrs, controller) {
-              return envelope.data.preLink.apply(this,arguments);
-            }
-          }
-          if(envelope.data.postLink){
-            args.post = function (scope, iElement, iAttrs, controller) {
-              return envelope.data.postLink.apply(this,arguments);
-            }
-          }
-          return args;
-        },
-      };
-      envelope.data.template ?
-        (directiveDefinitionObj.template = envelope.data.template):
-        (directiveDefinitionObj.templateUrl = norm.templateUrl);
-      return directiveDefinitionObj;
-    });
-  },{},{passEnvelope:true});
-
-  s.on('decoratorDirective',function (envelope) {
-    var norm = normedModules[envelope.source];
-    console.log('in decoratorDirective');
-    COMPILEPROVIDER.directive(envelope.data.name,function(){
-      var directiveDefinitionObj = {};
-      return {
-        replace:false,
-        transclude:false,
-        restrict:'A',
-        require:envelope.data.require,
-        scope:false,
-        controller:envelope.data.controller,
-        parsers:envelope.data.parsers,
-        formatters:envelope.data.formatters,
-        validators:envelope.data.validators,
-        compile: function compile(tElement, tAttrs, transclude) {
-          if(envelope.data.compile){
-            envelope.data.compile.apply(this,tElement,tAttrs);
-          }
-          var args = {};
-          if(envelope.data.preLink){
-            args.pre = function (scope, iElement, iAttrs, controller) {
-              return envelope.data.preLink.apply(this,arguments);
-            }
-          }
-          if(envelope.data.postLink){
-            args.post = function (scope, iElement, iAttrs, controller) {
-              return envelope.data.postLink.apply(this,arguments);
-            }
-          }
-          return args;
-        },
-      }
-    });
-  },{},{passEnvelope:true});
 
   s.addSandboxMethods(function(config){
     return {
